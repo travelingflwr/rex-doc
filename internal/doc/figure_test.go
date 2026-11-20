@@ -1,6 +1,9 @@
 package doc
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func figureOpts() Options {
 	return Options{Images: true, CellW: 8, CellH: 16, ScreenRows: 48, BaseDir: "../../testdata"}
@@ -49,5 +52,73 @@ func TestMissingAndRemoteImagesAreCards(t *testing.T) {
 	d := Render([]byte("![a](missing.png)\n\n![b](https://example.com/x.png)\n"), 100, figureOpts())
 	if len(d.Figures) != 0 {
 		t.Errorf("missing or remote images became figures")
+	}
+}
+
+func TestImgTagOnItsOwnLineIsAFigure(t *testing.T) {
+	for _, src := range []string{
+		"<img src=\"images/landscape.png\" alt=\"wide\">\n",
+		"<p align=\"center\">\n  <img src='images/landscape.png' alt=\"wide\" width=\"400\">\n</p>\n",
+		"Text.\n\n<img src=images/landscape.png>\n",
+	} {
+		d := Render([]byte(src), 100, figureOpts())
+		if len(d.Figures) != 1 {
+			t.Errorf("%q: got %d figures, want 1", src, len(d.Figures))
+		}
+	}
+}
+
+func TestImgTagWidthLimitsTheFigure(t *testing.T) {
+	d := Render([]byte("<img src=\"images/landscape.png\" width=\"160\">\n"), 100, figureOpts())
+	if f := d.Figures[0]; f.Cols > 20 {
+		t.Errorf("width=160 figure is %d cells wide, want at most 20", f.Cols)
+	}
+}
+
+func TestImgTagsInTableCellsAreDrawn(t *testing.T) {
+	src := "| A | B |\n|---|---|\n| <img src=\"images/tree.png\" alt=\"t\" width=\"200\"> | <img src=\"images/landscape.png\" width=\"200\"> |\n"
+	d := Render([]byte(src), 80, figureOpts())
+	if len(d.Figures) != 2 {
+		t.Fatalf("got %d figures, want 2", len(d.Figures))
+	}
+	// Every line of the table is the same width: image cells fill their columns.
+	w := -1
+	for _, ln := range d.Lines {
+		if lw := spansWidth(ln.Spans); w < 0 {
+			w = lw
+		} else if lw != w {
+			t.Fatalf("table lines are %d and %d cells wide", w, lw)
+		}
+	}
+	for _, f := range d.Figures {
+		if f.Line < 3 || f.Line >= len(d.Lines) {
+			t.Errorf("figure starts at line %d, outside the table body", f.Line)
+		}
+	}
+}
+
+func TestImgTagsWithoutGraphicsAreText(t *testing.T) {
+	opts := figureOpts()
+	opts.Images = false
+	src := "# <img src=\"images/icon.png\" alt=\"icon\" height=\"40\"> Title\n\n| A |\n|---|\n| <img src=\"images/tree.png\" alt=\"a tree\"> |\n\nBig <img src=\"images/tree.png\" alt=\"tree\"> inline.\n"
+	d := Render([]byte(src), 100, opts)
+	if len(d.Figures) != 0 {
+		t.Errorf("got %d figures without graphics", len(d.Figures))
+	}
+	var all string
+	for _, ln := range d.Lines {
+		for _, s := range ln.Spans {
+			all += s.Text
+		}
+	}
+	if strings.Contains(all, "<img") || !strings.Contains(all, "🖼 a tree") {
+		t.Errorf("img tags weren't turned into chips:\n%s", all)
+	}
+}
+
+func TestOtherHTMLIsLeftAlone(t *testing.T) {
+	d := Render([]byte("<details>\n<summary>More</summary>\n<img src=\"images/icon.png\">\n</details>\n"), 100, figureOpts())
+	if len(d.Figures) != 0 {
+		t.Errorf("an HTML block with text became figures")
 	}
 }

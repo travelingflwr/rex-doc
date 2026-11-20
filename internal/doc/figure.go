@@ -7,12 +7,10 @@ import (
 	_ "image/gif" // registered for DecodeConfig
 	_ "image/jpeg"
 	_ "image/png"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/yuin/goldmark/ast"
 	_ "golang.org/x/image/webp"
 )
 
@@ -47,64 +45,33 @@ func PlaceholderRow(r, cols int) string {
 	return Placeholder + string(rowDiacritics[r]) + string(rowDiacritics[0]) + strings.Repeat(Placeholder, cols-1)
 }
 
-// soloImage returns the image when a paragraph holds nothing but one image.
-func soloImage(p ast.Node, src []byte) *ast.Image {
-	var img *ast.Image
-	for c := p.FirstChild(); c != nil; c = c.NextSibling() {
-		switch c := c.(type) {
-		case *ast.Image:
-			if img != nil {
-				return nil
-			}
-			img = c
-		case *ast.Text:
-			if strings.TrimSpace(string(c.Segment.Value(src))) != "" {
-				return nil
-			}
-		default:
-			return nil
-		}
-	}
-	return img
-}
-
 // figure lays out an image on its own line: a frame, the image's cells and
 // a numbered caption. Remote, missing and unreadable images get a card.
-func (l *layout) figure(img *ast.Image, first, rest []Span) {
+func (l *layout) figure(p picture, first, rest []Span) {
 	l.figures++
-	dest := strings.TrimSpace(string(img.Destination))
-	alt := plainText(l.inlines(img, Plain, -1))
-	label := alt
-	if t := strings.TrimSpace(string(img.Title)); t != "" {
-		label = t
+	dest := p.dest
+	label := p.alt
+	if p.title != "" {
+		label = p.title
 	}
 	if label == "" {
 		label = filepath.Base(dest)
 	}
 	caption := fmt.Sprintf("Figure %d · %s", l.figures, label)
-	src := l.srcOf(img)
-	link := l.addLink(dest, string(img.Title))
+	src := p.src
+	link := l.addLink(dest, p.title)
 	l.doc.Links[link].Image = true
 
-	if u, err := url.Parse(dest); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
-		l.card(first, rest, label, "on "+u.Host+" · tap to open in the browser", caption, link, src)
+	if host, remote := isRemote(dest); remote {
+		l.card(first, rest, label, "on "+host+" · tap to open in the browser", caption, link, src)
 		return
 	}
-	path := dest
-	if p, err := url.PathUnescape(path); err == nil {
-		path = p
-	}
-	if !filepath.IsAbs(path) && l.opts.BaseDir != "" {
-		path = filepath.Join(l.opts.BaseDir, path)
-	}
-	f, err := os.Open(path)
-	if err != nil {
+	if _, err := os.Stat(l.localPath(dest)); err != nil {
 		l.card(first, rest, "image not found", dest, caption, -1, src)
 		return
 	}
-	cfg, _, err := image.DecodeConfig(f)
-	f.Close()
-	if err != nil || cfg.Width == 0 || cfg.Height == 0 {
+	path, cfg, ok := l.readable(dest)
+	if !ok {
 		l.card(first, rest, label, dest+" · can't show this kind of image yet", caption, link, src)
 		return
 	}
@@ -112,20 +79,17 @@ func (l *layout) figure(img *ast.Image, first, rest []Span) {
 		l.card(first, rest, label, dest, caption, link, src)
 		return
 	}
-	l.placeFigure(path, cfg, caption, link, src, first, rest)
+	l.placeFigure(path, cfg, p.width, caption, link, src, first, rest)
 }
 
 // placeFigure lays out a readable image as a figure: frame, cells, caption.
-func (l *layout) placeFigure(path string, cfg image.Config, caption string, link, src int, first, rest []Span) {
-	cw, ch := max(l.opts.CellW, 1), max(l.opts.CellH, 1)
+func (l *layout) placeFigure(path string, cfg image.Config, want int, caption string, link, src int, first, rest []Span) {
 	avail := l.avail(rest) - 4
-	cols := min(avail, (cfg.Width+cw-1)/cw) // never scaled up
-	rows := max(int(float64(cols*cw)*float64(cfg.Height)/float64(cfg.Width)/float64(ch)+0.5), 1)
-	maxRows := min(max(l.opts.ScreenRows/3, 4), MaxFigureRows)
-	if rows > maxRows {
-		rows = maxRows
-		cols = max(int(float64(rows*ch)*float64(cfg.Width)/float64(cfg.Height)/float64(cw)+0.5), 1)
+	limit := avail
+	if want > 0 { // an <img width="…">
+		limit = min(avail, max(want/cssCell, 4))
 	}
+	cols, rows := l.fitCells(cfg, limit, l.maxFigureRows())
 	id := figureID(path, cols, rows)
 	indent := Span{Text: spaces((avail - cols) / 2), Style: Plain, Src: -1}
 	frame := Plain.With(BrightBlack)
