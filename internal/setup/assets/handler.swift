@@ -45,15 +45,24 @@ func open(_ path: String) {
     do {
         try p.run()
         p.waitUntilExit()
-        if p.terminationStatus == 0 { return }
+        if p.terminationStatus == 0 {
+            bringRexForward()
+            return
+        }
     } catch {}
     // Rex isn't running: start it, then try once more.
-    if let rexApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.superlogical.rex") {
-        NSWorkspace.shared.open(rexApp)
-    }
+    bringRexForward()
     Thread.sleep(forTimeInterval: 3)
     if let q = try? Process.run(URL(fileURLWithPath: rdxt), arguments: ["open", "--click", path]) {
         q.waitUntilExit()
+    }
+}
+
+// bringRexForward starts Rex, or brings it to the front when it's running,
+// so a document opened from Finder is in front of you rather than behind it.
+func bringRexForward() {
+    if let rexApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.superlogical.rex") {
+        NSWorkspace.shared.open(rexApp)
     }
 }
 
