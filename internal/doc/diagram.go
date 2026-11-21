@@ -68,7 +68,7 @@ func (l *layout) diagram(code string, src int, first, rest []Span) bool {
 					l.figures++
 					link := l.addLink(png, "")
 					l.doc.Links[link].Image = true
-					l.placeFigure(png, cfg, mermaid.KindName(kind), link, src, first, rest)
+					l.placeFigure(png, cfg, 0, mermaid.KindName(kind), link, src, first, rest)
 					return true
 				}
 			}

@@ -154,8 +154,8 @@ func (l *layout) block(n ast.Node, first, rest []Span) {
 	case *ast.Heading:
 		l.heading(n, first, rest)
 	case *ast.Paragraph, *ast.TextBlock:
-		if img := soloImage(n, l.src); img != nil {
-			l.figure(img, first, rest)
+		if pic, ok := l.soloPicture(n); ok {
+			l.figure(pic, first, rest)
 			return
 		}
 		spans := l.inlines(n, Plain, -1)
@@ -184,10 +184,20 @@ func (l *layout) block(n ast.Node, first, rest []Span) {
 		if n.HasClosure() {
 			b.Write(n.ClosureLine.Value(l.src))
 		}
-		st := Plain
-		st.Dim = true
 		p := first
 		src := l.srcOf(n)
+		if pics := blockPictures(b.String(), max(src, 0)); len(pics) > 0 {
+			for i, pic := range pics {
+				if i > 0 {
+					l.blank(rest)
+				}
+				l.figure(pic, p, rest)
+				p = rest
+			}
+			return
+		}
+		st := Plain
+		st.Dim = true
 		for _, line := range strings.Split(strings.TrimRight(b.String(), "\n"), "\n") {
 			l.emit(Line{Spans: append(clone(p), Span{Text: truncate(line, l.avail(p)), Style: st, Src: src}), Src: src})
 			p = rest
@@ -239,6 +249,9 @@ func (l *layout) heading(n *ast.Heading, first, rest []Span) {
 func plainText(spans []Span) string {
 	var b strings.Builder
 	for _, s := range spans {
+		if s.Style.Image != 0 { // placeholder cells of an image, not text
+			continue
+		}
 		b.WriteString(s.Text)
 	}
 	return strings.TrimSpace(b.String())
@@ -626,16 +639,14 @@ func (l *layout) inline(n ast.Node, st Style, skip int, out *[]Span) {
 			ls.FG = Blue
 			*out = append(*out, Span{Text: string(c.Label(l.src)), Style: ls, Src: l.srcOf(c)})
 		case *ast.Image:
-			is := st
-			is.Link = l.addLink(string(c.Destination), string(c.Title))
-			is.FG = Blue
-			is.Italic = true
-			alt := plainText(l.inlines(c, is, -1))
-			if alt == "" {
-				alt = "image"
-			}
-			*out = append(*out, Span{Text: "🖼 " + alt, Style: is, Src: l.srcOf(c)})
+			pic, _ := l.pictureOf(c)
+			link := l.addLink(pic.dest, pic.title)
+			*out = append(*out, l.chip(pic, st, link))
 		case *ast.RawHTML:
+			if pic, ok := l.pictureOf(c); ok {
+				*out = append(*out, l.inlineImg(pic, st))
+				continue
+			}
 			hs := st
 			hs.Dim = true
 			for i := 0; i < c.Segments.Len(); i++ {

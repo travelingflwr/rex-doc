@@ -18,6 +18,8 @@ func runewidthTruncate(s string, w int) string {
 type cell struct {
 	spans []Span
 	width int
+	// img, when set, is drawn in the cell instead of spans.
+	img *cellImage
 }
 
 // table draws a GFM table with box-drawing borders. Columns that don't fit
@@ -31,6 +33,18 @@ func (l *layout) table(n *east.Table, first, rest []Span) {
 			st := Plain
 			if _, ok := r.(*east.TableHeader); ok {
 				st.Bold = true
+			}
+			if pic, img, ok := l.cellPicture(c); ok {
+				link := l.addLink(pic.dest, pic.title)
+				l.doc.Links[link].Image = true
+				chip := []Span{l.chip(pic, st, link)}
+				if img == nil {
+					row = append(row, cell{spans: chip, width: spansWidth(chip)})
+				} else {
+					img.link = link
+					row = append(row, cell{spans: chip, width: img.natural, img: img})
+				}
+				continue
 			}
 			spans := l.inlines(c, st, -1)
 			row = append(row, cell{spans: spans, width: spansWidth(spans)})
@@ -121,7 +135,11 @@ func (l *layout) row(row []cell, widths []int, aligns []east.Alignment, prefix [
 		if i < len(row) {
 			spans = row[i].spans
 		}
-		wrapped[i] = wrap(spans, widths[i], nil, nil, -1)
+		if i < len(row) && row[i].img != nil {
+			wrapped[i] = l.cellImageLines(row[i].img, widths[i], len(l.doc.Lines))
+		} else {
+			wrapped[i] = wrap(spans, widths[i], nil, nil, -1)
+		}
 		height = max(height, len(wrapped[i]))
 	}
 	for h := 0; h < height; h++ {
