@@ -1,6 +1,7 @@
 // rdxt's document handler: the app macOS opens .md and .dok files with
 // (Cmd-click in Rex, double-click in Finder). It hands each file to
-// `rdxt open --float`, which shows it in a floating window in Rex, and quits.
+// `rdxt open --click`, which shows it in Rex where `rdxt setup --open` said
+// (a floating window, or a pane beside the focused one), and quits.
 // Built and installed by `rdxt setup`.
 import AppKit
 import CoreServices
@@ -35,7 +36,7 @@ func restore(_ pairs: ArraySlice<String>) {
 func open(_ path: String) {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: rdxt)
-    p.arguments = ["open", "--float", path]
+    p.arguments = ["open", "--click", path]
     var env = ProcessInfo.processInfo.environment
     env["RDXT_REX"] = rexBin
     env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + (env["PATH"] ?? "")
@@ -50,7 +51,7 @@ func open(_ path: String) {
         NSWorkspace.shared.open(rexApp)
     }
     Thread.sleep(forTimeInterval: 3)
-    if let q = try? Process.run(URL(fileURLWithPath: rdxt), arguments: ["open", "--float", path]) {
+    if let q = try? Process.run(URL(fileURLWithPath: rdxt), arguments: ["open", "--click", path]) {
         q.waitUntilExit()
     }
 }

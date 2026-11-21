@@ -39,16 +39,23 @@ function M.setup(opts)
   opts = opts or {}
   local bin = opts.bin or "rdxt"
 
-  local function float(path, extra)
+  -- show opens a document where `rdxt setup --open` said: a floating
+  -- window, or a pane beside the focused one.
+  local function show(ctx, path, extra)
     local command = { bin }
     for _, a in ipairs(extra or {}) do command[#command + 1] = a end
     command[#command + 1] = path
-    local _, err = rex.session.new_layer{
-      bounds = FLOAT,
-      focus = true,
-      layout = { block = { flavor = SHELL, label = basename(path),
-        options = { command = command, cwd = dirname(path) } } },
-    }
+    local layout = { block = { flavor = SHELL, label = basename(path),
+      options = { command = command, cwd = dirname(path) } } }
+    if opts.open == "pane" then
+      local _, err = rex.session.new_split{
+        anchor_id = ctx.block_id, direction = "horizontal", side = "after",
+        focus = true, layout = layout,
+      }
+      if err ~= nil then error("rdxt: couldn't open a pane: " .. tostring(err), 0) end
+      return
+    end
+    local _, err = rex.session.new_layer{ bounds = FLOAT, focus = true, layout = layout }
     if err ~= nil then error("rdxt: couldn't open a floating window: " .. tostring(err), 0) end
   end
 
@@ -61,7 +68,7 @@ function M.setup(opts)
   rex.action{
     name = "rdxt_open",
     title = "rdxt: Open Document…",
-    description = "Open a Markdown or Dok document, recent or in this folder, in a floating rdxt window.",
+    description = "Open a Markdown or Dok document, recent or in this folder, in rdxt.",
     category = "rdxt",
     keywords = "rdxt markdown md dok document open read view notes plan",
     run = function(ctx)
@@ -78,7 +85,7 @@ function M.setup(opts)
       if #items == 0 then error("rdxt: no .md or .dok documents here. Try rdxt: New Document.", 0) end
       local path = rex.ui.pick{ title = "Open document", placeholder = "Filter documents", items = items }
       if path == nil then return end
-      float(path)
+      show(ctx, path)
     end,
   }
 
@@ -110,7 +117,7 @@ function M.setup(opts)
       if template == nil then return end
       local r = rex.exec({ bin, "new", "--no-open", "--template", template, "--dir", dir, name }, { timeout = 10 })
       if r == nil or not r.ok then error("rdxt: " .. ((r and r.stderr) or "rdxt not found"), 0) end
-      float((r.stdout:gsub("%s+$", "")), { "--source" })
+      show(ctx, (r.stdout:gsub("%s+$", "")), { "--source" })
     end,
   }
 end

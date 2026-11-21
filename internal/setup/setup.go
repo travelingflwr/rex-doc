@@ -52,6 +52,20 @@ type state struct {
 	Plugin   string            `json:"plugin,omitempty"`
 	Skills   []string          `json:"skills,omitempty"`
 	Zshrc    string            `json:"zshrc,omitempty"`
+	// Open is where clicked documents open: "float" (the default) or "pane".
+	Open string `json:"open,omitempty"`
+}
+
+// OpenIn is where Cmd-click, a Finder double-click and the palette open a
+// document: "float" for a floating window, or "pane" for a pane beside
+// the focused one. `rdxt setup --open` sets it.
+func OpenIn() string { return loadState().openIn() }
+
+func (s state) openIn() string {
+	if s.Open == "pane" {
+		return "pane"
+	}
+	return "float"
 }
 
 func home() string { h, _ := os.UserHomeDir(); return h }
@@ -90,13 +104,19 @@ func step(ok bool, what string, detail string) {
 func Command(args []string, version string) error {
 	fs := flag.NewFlagSet("rdxt setup", flag.ContinueOnError)
 	undo := fs.Bool("undo", false, "")
+	open := fs.String("open", "", "")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *undo {
 		return Undo()
 	}
-	return Install(version)
+	switch *open {
+	case "", "float", "pane":
+	default:
+		return fmt.Errorf("--open is float or pane, not %q", *open)
+	}
+	return Install(version, *open)
 }
 
 // self is the stable path to this rdxt (a Homebrew or ~/.local/bin link
@@ -120,10 +140,18 @@ func self() string {
 
 // Install sets everything up. Each part is independent: one failing
 // doesn't stop the others.
-func Install(version string) error {
+// open, when not empty, changes where clicked documents open.
+func Install(version, open string) error {
 	fmt.Println("\x1b[1mSetting up rdxt\x1b[0m")
 	s := loadState()
 	s.Version, s.When = version, time.Now()
+	if open != "" {
+		s.Open = open
+	}
+	where := "floating window in Rex"
+	if s.openIn() == "pane" {
+		where = "pane beside the focused one in Rex"
+	}
 	bin := self()
 	var problems []string
 
@@ -132,14 +160,14 @@ func Install(version string) error {
 			step(false, "Cmd-click and Finder open documents in rdxt", err.Error())
 			problems = append(problems, "handler")
 		} else {
-			step(true, "Cmd-click and Finder open .md and .dok in rdxt", "default app, floating window in Rex")
+			step(true, "Cmd-click and Finder open .md and .dok in rdxt", "default app, "+where)
 		}
 	}
-	if err := installPlugin(&s, bin); err != nil {
+	if err := installPlugin(&s, bin, s.openIn()); err != nil {
 		step(false, "Rex palette actions", err.Error())
 		problems = append(problems, "palette")
 	} else {
-		step(true, "Rex palette: rdxt: Open Document… and rdxt: New Document…", "")
+		step(true, "Rex palette: rdxt: Open Document… and rdxt: New Document…", where)
 	}
 	if dirs := installSkills(&s); len(dirs) > 0 {
 		step(true, "Agent skill for "+strings.Join(dirs, ", "), "")
@@ -242,7 +270,7 @@ func rexConfig() string {
 	return filepath.Join(dir, "rex", "init.lua")
 }
 
-func installPlugin(s *state, bin string) error {
+func installPlugin(s *state, bin, open string) error {
 	cfg := rexConfig()
 	plugin := filepath.Join(filepath.Dir(cfg), "plugins", "rdxt", "init.lua")
 	if err := os.MkdirAll(filepath.Dir(plugin), 0o755); err != nil {
@@ -251,7 +279,7 @@ func installPlugin(s *state, bin string) error {
 	if err := os.WriteFile(plugin, []byte(pluginLua), 0o644); err != nil {
 		return err
 	}
-	block := fmt.Sprintf("%s\ndofile(%q).setup({ bin = %q })\n%s\n", markStart, plugin, bin, markEnd)
+	block := fmt.Sprintf("%s\ndofile(%q).setup({ bin = %q, open = %q })\n%s\n", markStart, plugin, bin, open, markEnd)
 	old, err := os.ReadFile(cfg)
 	if err != nil && !os.IsNotExist(err) {
 		return err

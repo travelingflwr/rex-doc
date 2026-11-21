@@ -42,6 +42,7 @@ func (v *viewer) enterSource() {
 // even when it isn't saved yet.
 func (v *viewer) leaveSource() {
 	v.mode = viewMode
+	v.leftSource = true
 	if v.ed.dirty {
 		v.src = []byte(v.ed.text())
 	}
@@ -236,7 +237,7 @@ func (v *viewer) sourceLayout(width, rows int) []seg {
 	text := e.text()
 	if text != v.hlText {
 		lang := "markdown"
-		if doc.OptionsFor(v.path).Dok || !isMarkdown(v.path) {
+		if o := doc.OptionsFor(v.path); o.Dok || o.Text || !isDocument(v.path) {
 			lang = ""
 		}
 		v.hl = doc.Highlight(strings.TrimSuffix(text, "\n"), lang)

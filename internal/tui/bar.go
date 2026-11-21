@@ -319,7 +319,7 @@ var helpKeys = [][2]string{
 	{"E", "edit in Neovim"},
 	{"tap ( )", "tick a task (u undoes)"},
 	{"r", "reload"},
-	{"Esc", "clear selection"},
+	{"Esc", "clear selection; closes a floating window"},
 	{"q", "quit"},
 }
 

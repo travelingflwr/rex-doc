@@ -73,9 +73,10 @@ func Available() bool { return Session() != "" }
 type Where int
 
 const (
-	Float Where = iota // a floating window over the current tab
-	Split              // a pane beside the calling one
-	Tab                // a new tab
+	Float  Where = iota // a floating window over the current tab
+	Split               // a pane beside the calling one
+	Tab                 // a new tab
+	Beside              // a pane beside the focused one, taking the focus
 )
 
 // Open runs `self args...` in Rex. For Split it goes beside $REX_BLOCK and
@@ -92,6 +93,12 @@ func Open(where Where, self string, args []string, dir, label string) error {
 		if b := os.Getenv("REX_BLOCK"); b != "" {
 			a = append(a, "-b", b)
 		}
+		if dir != "" {
+			a = append(a, "-c", dir)
+		}
+		return run(append(append(a, "--"), cmd...)...)
+	case Beside:
+		a := []string{"split", "-s", session}
 		if dir != "" {
 			a = append(a, "-c", dir)
 		}

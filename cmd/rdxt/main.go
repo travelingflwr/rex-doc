@@ -36,6 +36,9 @@ Usage:
   rdxt setup [--undo]        make rdxt feel built in: Cmd-click and Finder
                              open .md and .dok in rdxt, Rex palette actions,
                              agent skills, shell setup (--undo removes it all)
+  rdxt setup --open pane|float
+                             where clicked documents open: a pane beside
+                             the focused one, or a floating window (default)
   rdxt agents install|remove add or remove the agent skill only
   rdxt agent-guide           how coding agents should use rdxt
 
@@ -147,6 +150,9 @@ func openCmd(args []string) error {
 	float := fs.Bool("float", false, "")
 	split := fs.Bool("split", false, "")
 	tab := fs.Bool("tab", false, "")
+	// --click is a Cmd-click or a Finder double-click, from rdxt's
+	// document handler: it opens where `rdxt setup --open` said.
+	click := fs.Bool("click", false, "")
 	source := fs.Bool("source", false, "")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -168,6 +174,10 @@ func openCmd(args []string) error {
 	case *tab:
 		where = rex.Tab
 	case *float:
+	case *click:
+		if setup.OpenIn() == "pane" {
+			where = rex.Beside
+		}
 	case os.Getenv("REX_BLOCK") != "":
 		where = rex.Split // from a Rex pane (an agent, a shell): beside it
 	}

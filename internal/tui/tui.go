@@ -79,6 +79,8 @@ type viewer struct {
 	rich bool
 	// floating is true when Rex shows rdxt in a floating layer.
 	floating bool
+	// leftSource is true from leaving Source mode until the next key.
+	leftSource bool
 	// hits are the top bar's click targets.
 	hits []hit
 	// quit is set by the close pill.
@@ -478,6 +480,8 @@ func (v *viewer) key(k string) bool {
 	if v.mode == sourceMode {
 		return v.sourceKey(k)
 	}
+	leftSource := v.leftSource
+	v.leftSource = false
 	if v.pending == "g" {
 		v.pending = ""
 		if k == "g" {
@@ -505,6 +509,12 @@ func (v *viewer) key(k string) bool {
 	case "u":
 		v.undoView()
 	case "esc":
+		// In a floating window, Esc with nothing to clear closes it: a
+		// quick peek, gone as fast as it came.
+		// Not right after Esc left Source mode, so a double Esc stays.
+		if v.floating && !leftSource && v.sel < 0 && v.query == "" && !v.dirty() {
+			return true
+		}
 		v.sel = -1
 		v.query, v.matches = "", nil
 	case "j", "down", "\x05":
@@ -689,7 +699,7 @@ func (v *viewer) follow(l int) {
 				return
 			}
 		}
-		if isMarkdown(file) {
+		if isDocument(file) {
 			v.visit(file, anchor)
 			return
 		}
@@ -706,9 +716,11 @@ func isURL(s string) bool {
 	return false
 }
 
-func isMarkdown(path string) bool {
+// isDocument reports whether rdxt shows a file itself: Markdown, Dok and
+// plain text. Links to them open in place.
+func isDocument(path string) bool {
 	switch strings.ToLower(filepath.Ext(path)) {
-	case ".md", ".markdown", ".mdown", ".mkd", ".mdx", ".dok":
+	case ".md", ".markdown", ".mdown", ".mkd", ".mdx", ".dok", ".txt":
 		return true
 	}
 	return false

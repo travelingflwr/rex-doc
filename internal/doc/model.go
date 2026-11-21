@@ -162,6 +162,9 @@ type Options struct {
 	ShowFrontmatter bool
 	// Dok lays the source out as a Dok document instead of Markdown.
 	Dok bool
+	// Text lays the source out as plain text: its lines as they are,
+	// wrapped when too long, with nothing read as markup.
+	Text bool
 	// Images draws figures with kitty graphics placeholders (in Rex).
 	// Without it, figures are cards.
 	Images bool
@@ -174,7 +177,8 @@ type Options struct {
 
 // OptionsFor returns the options a file needs, by its extension.
 func OptionsFor(path string) Options {
-	return Options{Dok: strings.EqualFold(filepath.Ext(path), ".dok"), BaseDir: filepath.Dir(path),
+	ext := strings.ToLower(filepath.Ext(path))
+	return Options{Dok: ext == ".dok", Text: ext == ".txt", BaseDir: filepath.Dir(path),
 		CellW: 8, CellH: 16, ScreenRows: 40}
 }
 
