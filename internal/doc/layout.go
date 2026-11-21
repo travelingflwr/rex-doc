@@ -50,6 +50,10 @@ func Render(src []byte, termWidth int, opts Options) *Doc {
 		renderText(src, d)
 		return d
 	}
+	if opts.Code != "" {
+		renderCode(src, d, opts)
+		return d
+	}
 	ctx := parser.NewContext()
 	root := md.Parser().Parse(text.NewReader(src), parser.WithContext(ctx))
 	l := &layout{src: src, width: d.Width, doc: d, slugs: map[string]int{}, opts: opts}

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/travelingflwr/rex-doc/internal/doc"
+	"github.com/travelingflwr/rex-doc/internal/rex"
 )
 
 // What the viewer is doing with the keyboard.
@@ -81,6 +82,8 @@ type viewer struct {
 	floating bool
 	// leftSource is true from leaving Source mode until the next key.
 	leftSource bool
+	// check is Rex's check of its config, when that's the file shown.
+	check *doc.Check
 	// hits are the top bar's click targets.
 	hits []hit
 	// quit is set by the close pill.
@@ -242,6 +245,10 @@ func (v *viewer) load() error {
 		return err
 	}
 	v.src, v.mod, v.size = src, st.ModTime(), st.Size()
+	v.check = nil
+	if rex.IsConfig(v.path) {
+		v.check = rex.CheckConfig()
+	}
 	return nil
 }
 
@@ -252,6 +259,7 @@ func (v *viewer) relayout() {
 		anchor = v.doc.SrcForLine(v.top)
 	}
 	opts := doc.OptionsFor(v.path)
+	opts.Check = v.check
 	opts.ShowFrontmatter = v.showFM
 	opts.Images = v.rich
 	if v.cellW > 0 {

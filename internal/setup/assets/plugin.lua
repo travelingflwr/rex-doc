@@ -120,6 +120,18 @@ function M.setup(opts)
       show(ctx, (r.stdout:gsub("%s+$", "")), { "--source" })
     end,
   }
+
+  rex.action{
+    name = "rdxt_check_config",
+    title = "rdxt: Check Rex Config",
+    description = "Open Rex's init.lua in rdxt, with Rex's own check of it on top. Edit it with e; saving checks it again.",
+    category = "rdxt",
+    keywords = "rdxt rex config init.lua lua check lint errors settings",
+    run = function(ctx)
+      if opts.config == nil then error("rdxt: run rdxt setup again to add this action", 0) end
+      show(ctx, opts.config)
+    end,
+  }
 end
 
 return M

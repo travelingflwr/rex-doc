@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,6 +55,24 @@ type state struct {
 	Zshrc    string            `json:"zshrc,omitempty"`
 	// Open is where clicked documents open: "float" (the default) or "pane".
 	Open string `json:"open,omitempty"`
+	// Txt is true when rdxt is also the default app for .txt files.
+	Txt bool `json:"txt,omitempty"`
+}
+
+const (
+	markdownType = "net.daringfireball.markdown"
+	dokType      = "com.travelingflwr.dok"
+	textType     = "public.plain-text"
+	textEdit     = "com.apple.TextEdit"
+)
+
+// types are the file types rdxt is the default app for.
+func (s state) types() []string {
+	t := []string{markdownType, dokType}
+	if s.Txt {
+		t = append(t, textType)
+	}
+	return t
 }
 
 // OpenIn is where Cmd-click, a Finder double-click and the palette open a
@@ -105,9 +124,16 @@ func Command(args []string, version string) error {
 	fs := flag.NewFlagSet("rdxt setup", flag.ContinueOnError)
 	undo := fs.Bool("undo", false, "")
 	open := fs.String("open", "", "")
+	txt := fs.Bool("txt", false, "")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	var txtChoice *bool
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "txt" {
+			txtChoice = txt
+		}
+	})
 	if *undo {
 		return Undo()
 	}
@@ -116,7 +142,7 @@ func Command(args []string, version string) error {
 	default:
 		return fmt.Errorf("--open is float or pane, not %q", *open)
 	}
-	return Install(version, *open)
+	return Install(version, *open, txtChoice)
 }
 
 // self is the stable path to this rdxt (a Homebrew or ~/.local/bin link
@@ -140,13 +166,20 @@ func self() string {
 
 // Install sets everything up. Each part is independent: one failing
 // doesn't stop the others.
-// open, when not empty, changes where clicked documents open.
-func Install(version, open string) error {
+// open, when not empty, changes where clicked documents open, and txt,
+// when not nil, whether rdxt opens .txt files too.
+func Install(version, open string, txt *bool) error {
 	fmt.Println("\x1b[1mSetting up rdxt\x1b[0m")
 	s := loadState()
 	s.Version, s.When = version, time.Now()
 	if open != "" {
 		s.Open = open
+	}
+	if txt != nil {
+		if s.Txt && !*txt && runtime.GOOS == "darwin" {
+			giveBackText(&s)
+		}
+		s.Txt = *txt
 	}
 	where := "floating window in Rex"
 	if s.openIn() == "pane" {
@@ -160,14 +193,18 @@ func Install(version, open string) error {
 			step(false, "Cmd-click and Finder open documents in rdxt", err.Error())
 			problems = append(problems, "handler")
 		} else {
-			step(true, "Cmd-click and Finder open .md and .dok in rdxt", "default app, "+where)
+			kinds := ".md and .dok"
+			if s.Txt {
+				kinds = ".md, .dok and .txt"
+			}
+			step(true, "Cmd-click and Finder open "+kinds+" in rdxt", "default app, "+where)
 		}
 	}
 	if err := installPlugin(&s, bin, s.openIn()); err != nil {
 		step(false, "Rex palette actions", err.Error())
 		problems = append(problems, "palette")
 	} else {
-		step(true, "Rex palette: rdxt: Open Document… and rdxt: New Document…", where)
+		step(true, "Rex palette: rdxt: Open Document…, New Document… and Check Rex Config", where)
 	}
 	if dirs := installSkills(&s); len(dirs) > 0 {
 		step(true, "Agent skill for "+strings.Join(dirs, ", "), "")
@@ -209,7 +246,11 @@ func installHandler(s *state, bin, version string) error {
 		return err
 	}
 	defer os.RemoveAll(build)
-	src := strings.NewReplacer("__RDXT__", bin, "__REX__", rex.Bin()).Replace(handlerSwift)
+	var quoted []string
+	for _, t := range s.types() {
+		quoted = append(quoted, strconv.Quote(t))
+	}
+	src := strings.NewReplacer("__RDXT__", bin, "__REX__", rex.Bin(), "__TYPES__", strings.Join(quoted, ", ")).Replace(handlerSwift)
 	if err := os.WriteFile(filepath.Join(build, "main.swift"), []byte(src), 0o644); err != nil {
 		return err
 	}
@@ -241,12 +282,32 @@ func installHandler(s *state, bin, version string) error {
 	}
 	prev := map[string]string{}
 	json.Unmarshal(out, &prev)
-	// Keep the first handlers we replaced, across repeated setups.
+	// Keep the first handler we replaced for each type, across repeated
+	// setups, so --undo gives each type back to the app it had.
 	if s.Previous == nil {
-		s.Previous = prev
+		s.Previous = map[string]string{}
+	}
+	for t, h := range prev {
+		if _, ok := s.Previous[t]; !ok {
+			s.Previous[t] = h
+		}
 	}
 	s.App = app
 	return nil
+}
+
+// giveBackText makes the app that opened .txt files before rdxt (or
+// TextEdit) their default again.
+func giveBackText(s *state) {
+	prev := s.Previous[textType]
+	if prev == "" {
+		prev = textEdit
+	}
+	if s.App != "" {
+		handler := filepath.Join(s.App, "Contents", "MacOS", "rdxt-handler")
+		exec.Command(handler, "--restore", textType+"="+prev).Run()
+	}
+	delete(s.Previous, textType)
 }
 
 func copyFile(from, to string, mode os.FileMode) error {
@@ -259,16 +320,7 @@ func copyFile(from, to string, mode os.FileMode) error {
 
 // ---- Rex palette actions ----
 
-func rexConfig() string {
-	if c := os.Getenv("REX_CONFIG"); c != "" {
-		return c
-	}
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir == "" {
-		dir = filepath.Join(home(), ".config")
-	}
-	return filepath.Join(dir, "rex", "init.lua")
-}
+func rexConfig() string { return rex.ConfigPath() }
 
 func installPlugin(s *state, bin, open string) error {
 	cfg := rexConfig()
@@ -279,7 +331,7 @@ func installPlugin(s *state, bin, open string) error {
 	if err := os.WriteFile(plugin, []byte(pluginLua), 0o644); err != nil {
 		return err
 	}
-	block := fmt.Sprintf("%s\ndofile(%q).setup({ bin = %q, open = %q })\n%s\n", markStart, plugin, bin, open, markEnd)
+	block := fmt.Sprintf("%s\ndofile(%q).setup({ bin = %q, open = %q, config = %q })\n%s\n", markStart, plugin, bin, open, cfg, markEnd)
 	old, err := os.ReadFile(cfg)
 	if err != nil && !os.IsNotExist(err) {
 		return err

@@ -19,11 +19,13 @@ Or download a build for macOS or Linux from [Releases](https://github.com/travel
 
 `rdxt setup` makes rdxt feel built into Rex:
 - **Cmd-click** a `.md` or `.dok` path in Rex, or double-click one in Finder, and it opens in a floating rdxt window. `Esc` closes it. To read beside an agent instead, run `rdxt setup --open pane`, and clicked documents open in a pane next to the one you clicked in.
-- **The Rex palette** gets *rdxt: Open Document…* and *rdxt: New Document…* (with Blank, Plan, Notes and Dok templates).
+- **The Rex palette** gets *rdxt: Open Document…*, *rdxt: New Document…* (with Blank, Plan, Notes and Dok templates) and *rdxt: Check Rex Config*.
 - **Coding agents** (Claude Code, Codex, Cursor, OpenCode, Pi) get an rdxt skill, so they open the plans and reports they write.
 - **zsh** reports its folder to Rex, so relative names are clickable, and typing `notes.md` + Enter opens it.
 
-`rdxt setup --undo` puts everything back, including the app that opened Markdown before.
+- **Plain text, if you like:** `rdxt setup --txt` makes rdxt open `.txt` files too. `--txt=false` gives them back to the app they had.
+
+`rdxt setup --undo` puts everything back, including the apps that opened Markdown and text before.
 
 **On a remote host:** Cmd-click a document in a pane on another Rex host, and Rex downloads a copy and opens it in rdxt. To read it live, with links to other documents working, install rdxt on that host too and run `rdxt notes.md` there.
 
@@ -55,6 +57,7 @@ Press `?` in rdxt for every key.
 - **Adapts to the pane:** compact in narrow panes (phone, iPad split view), with an outline sidebar in wide ones.
 - **Supports** CommonMark, GFM, GitHub alerts, frontmatter, math and `:::` directives, and HTML `<img>` tags.
 - **Plain text too:** `.txt` files are shown as written, with columns kept and long lines wrapped.
+- **Your Rex config, checked:** open `~/.config/rex/init.lua` in rdxt (or *rdxt: Check Rex Config* in the palette), and Rex's own check of it comes first: what it sets up, or each error with its line, and those lines numbered in red. Edit it with `e`; saving checks it again. Other `.lua` files get syntax colors and line numbers, and are never run.
 - **Mermaid diagrams drawn as text:** sequence diagrams, flowcharts (TD, LR, BT, RL) and pie charts, in your theme's colors. Other kinds show as a picture when `mmdc` is installed, or as their source.
 
 ## ⭐ Like it? Star it

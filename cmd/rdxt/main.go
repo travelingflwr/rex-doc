@@ -39,6 +39,9 @@ Usage:
   rdxt setup --open pane|float
                              where clicked documents open: a pane beside
                              the focused one, or a floating window (default)
+  rdxt setup --txt[=false]   open .txt files in rdxt too (or stop)
+  rdxt ~/.config/rex/init.lua
+                             Rex's config, with Rex's check of it on top
   rdxt agents install|remove add or remove the agent skill only
   rdxt agent-guide           how coding agents should use rdxt
 
@@ -292,6 +295,9 @@ func printDoc(path string, width int, color bool) error {
 	}
 	opts := doc.OptionsFor(path)
 	opts.ShowFrontmatter = true
+	if path != "-" && rex.IsConfig(path) {
+		opts.Check = rex.CheckConfig()
+	}
 	d := doc.Render(src, width, opts)
 	for i := range d.Lines {
 		fmt.Println(d.Format(i, color))

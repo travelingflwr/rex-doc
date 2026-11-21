@@ -1,4 +1,5 @@
-// rdxt's document handler: the app macOS opens .md and .dok files with
+// rdxt's document handler: the app macOS opens .md and .dok files (and .txt,
+// after rdxt setup --txt) with
 // (Cmd-click in Rex, double-click in Finder). It hands each file to
 // `rdxt open --click`, which shows it in Rex where `rdxt setup --open` said
 // (a floating window, or a pane beside the focused one), and quits.
@@ -9,7 +10,7 @@ import CoreServices
 let rdxt = "__RDXT__"
 let rexBin = "__REX__"
 let bundleID = "com.travelingflwr.rdxt"
-let types = ["net.daringfireball.markdown", "com.travelingflwr.dok"]
+let types = [__TYPES__]
 
 func setDefault() {
     var previous: [String: String] = [:]

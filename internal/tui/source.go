@@ -237,7 +237,9 @@ func (v *viewer) sourceLayout(width, rows int) []seg {
 	text := e.text()
 	if text != v.hlText {
 		lang := "markdown"
-		if o := doc.OptionsFor(v.path); o.Dok || o.Text || !isDocument(v.path) {
+		if o := doc.OptionsFor(v.path); o.Code != "" {
+			lang = o.Code
+		} else if o.Dok || o.Text || !isDocument(v.path) {
 			lang = ""
 		}
 		v.hl = doc.Highlight(strings.TrimSuffix(text, "\n"), lang)

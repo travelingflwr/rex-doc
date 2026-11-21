@@ -165,6 +165,11 @@ type Options struct {
 	// Text lays the source out as plain text: its lines as they are,
 	// wrapped when too long, with nothing read as markup.
 	Text bool
+	// Code lays the source out as code in this language ("lua"), with
+	// syntax colors and line numbers.
+	Code string
+	// Check, with Code, is Rex's check of its config file, shown above it.
+	Check *Check
 	// Images draws figures with kitty graphics placeholders (in Rex).
 	// Without it, figures are cards.
 	Images bool
@@ -178,7 +183,11 @@ type Options struct {
 // OptionsFor returns the options a file needs, by its extension.
 func OptionsFor(path string) Options {
 	ext := strings.ToLower(filepath.Ext(path))
-	return Options{Dok: ext == ".dok", Text: ext == ".txt", BaseDir: filepath.Dir(path),
+	code := ""
+	if ext == ".lua" {
+		code = "lua"
+	}
+	return Options{Dok: ext == ".dok", Text: ext == ".txt", Code: code, BaseDir: filepath.Dir(path),
 		CellW: 8, CellH: 16, ScreenRows: 40}
 }
 
@@ -206,4 +215,22 @@ func (d *Doc) SrcForLine(i int) int {
 		}
 	}
 	return 0
+}
+
+// Check is what Rex said about its config file, shown above the file.
+type Check struct {
+	// Summary is what the config sets up, like "10 key bindings, 64 actions".
+	Summary string
+	// Problems are Rex's errors and warnings, in its order.
+	Problems []Problem
+	// Err is set when the check couldn't run.
+	Err string
+}
+
+// Problem is one complaint from Rex about its config.
+type Problem struct {
+	Severity string // "error" or "warning"
+	Where    string // the file and line, as Rex wrote it
+	Line     int    // the line in this file, or 0 when it's in another one
+	Message  string
 }
