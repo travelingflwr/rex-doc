@@ -1,5 +1,5 @@
 # Tells Rex the shell's folder, so relative file names are clickable.
-if [[ -n "$REX_SESSION" || "$TERM_PROGRAM" == rex ]]; then
+if [[ -n "$REX_SESSION" || -n "$REX_BLOCK" || "$TERM_PROGRAM" == rex ]]; then
   autoload -Uz add-zsh-hook
   _rdxt_report_dir() { printf '\e]7;file://%s%s\e\\' "${HOST}" "${PWD// /%20}" }
   add-zsh-hook chpwd _rdxt_report_dir

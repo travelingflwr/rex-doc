@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/travelingflwr/rex-doc/internal/rex"
 )
 
 func pathUnescape(s string) (string, error) { return url.PathUnescape(s) }
@@ -43,7 +45,7 @@ func runnable(file string) bool {
 // editor in a split beside rdxt. Elsewhere the system opens it, but never
 // anything it could run: a link in a document must not start a program.
 func (v *viewer) openOther(file string) {
-	if os.Getenv("REX_SESSION") != "" {
+	if rex.Here() != "" {
 		editor := os.Getenv("VISUAL")
 		if editor == "" {
 			editor = os.Getenv("EDITOR")

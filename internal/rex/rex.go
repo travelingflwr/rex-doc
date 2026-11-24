@@ -36,10 +36,21 @@ func Bin() string {
 
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
-// Session returns the Rex session to open in: $REX_SESSION inside a Rex
-// terminal, or else the one the Rex app last had focused.
-func Session() string {
+// Here returns what to pass to `rex -s` for the session this terminal is in,
+// or "" outside Rex. Rex servers from 0.1.0-preview.23 no longer set
+// $REX_SESSION, but -s takes a block ID to mean the session holding it, so
+// $REX_BLOCK works on old and new servers alike.
+func Here() string {
 	if s := os.Getenv("REX_SESSION"); s != "" {
+		return s
+	}
+	return os.Getenv("REX_BLOCK")
+}
+
+// Session returns the Rex session to open in: the one this terminal is in
+// (see Here), or else the one the Rex app last had focused.
+func Session() string {
+	if s := Here(); s != "" {
 		return s
 	}
 	// The key has a dot in it, so read it from the exported XML.

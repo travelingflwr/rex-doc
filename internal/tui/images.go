@@ -21,6 +21,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/travelingflwr/rex-doc/internal/doc"
+	"github.com/travelingflwr/rex-doc/internal/rex"
 )
 
 // Images are never sent at full quality: each figure gets a copy scaled to
@@ -190,7 +191,7 @@ func (v *viewer) showImage(path string) {
 				"options": map[string]any{"command": []string{self, "--image", path}},
 			}},
 		})
-		if exec.Command("rex", "api", "call", "-s", os.Getenv("REX_SESSION"), "session.new_layer", string(args)).Run() == nil {
+		if exec.Command("rex", "api", "call", "-s", rex.Here(), "session.new_layer", string(args)).Run() == nil {
 			return
 		}
 	}

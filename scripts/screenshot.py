@@ -31,7 +31,7 @@ def main():
     ap.add_argument("--wait", type=float, default=1.5)
     a = ap.parse_args()
 
-    session = os.environ.get("REX_SESSION")
+    session = os.environ.get("REX_SESSION") or os.environ.get("REX_BLOCK")
     # Prefer this repo's build, so screenshots show the code being worked on.
     local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rdxt")
     rdxt = os.path.abspath(local) if os.path.exists(local) else (

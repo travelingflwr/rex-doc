@@ -6,17 +6,19 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/travelingflwr/rex-doc/internal/rex"
 )
 
 // inRex reports whether rdxt is running in a Rex terminal.
 func inRex() bool {
-	return os.Getenv("TERM_PROGRAM") == "rex" || os.Getenv("REX_SESSION") != ""
+	return os.Getenv("TERM_PROGRAM") == "rex" || rex.Here() != ""
 }
 
 // rexFloating asks Rex whether rdxt's own block is in a floating layer. It
 // runs a rex command, so call it off the main loop.
 func rexFloating() bool {
-	session, block := os.Getenv("REX_SESSION"), os.Getenv("REX_BLOCK")
+	session, block := rex.Here(), os.Getenv("REX_BLOCK")
 	if session == "" || block == "" {
 		return false
 	}
@@ -59,7 +61,10 @@ func rexLabel(path string) {
 
 // rexView returns Rex's session view, decoded loosely.
 func rexView() map[string]any {
-	session := os.Getenv("REX_SESSION")
+	session := rex.Here()
+	if session == "" {
+		return nil
+	}
 	out, err := exec.Command("rex", "api", "call", "-s", session, "session.view").Output()
 	if err != nil {
 		return nil
@@ -115,7 +120,7 @@ func rexDock() bool {
 		}
 		if mine && anchor != "" {
 			body, _ := json.Marshal(map[string]any{"block_id": block, "anchor_block_id": anchor, "direction": "horizontal"})
-			return exec.Command("rex", "api", "call", "-s", os.Getenv("REX_SESSION"), "session.move_block", string(body)).Run() == nil
+			return exec.Command("rex", "api", "call", "-s", rex.Here(), "session.move_block", string(body)).Run() == nil
 		}
 	}
 	return false
@@ -128,7 +133,7 @@ func rexFloat() bool {
 		return false
 	}
 	body, _ := json.Marshal(map[string]any{"block_id": block, "bounds": []float64{0.1, 0.06, 0.8, 0.88}})
-	return exec.Command("rex", "api", "call", "-s", os.Getenv("REX_SESSION"), "session.float_block", string(body)).Run() == nil
+	return exec.Command("rex", "api", "call", "-s", rex.Here(), "session.float_block", string(body)).Run() == nil
 }
 
 func containsStr(list []string, s string) bool {

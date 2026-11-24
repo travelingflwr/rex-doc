@@ -12,7 +12,7 @@ import json, os, re, select, sys, termios, time, tty
 OUT = sys.argv[1] if len(sys.argv) > 1 else "probe-results.json"
 ESC = "\x1b"
 fd = sys.stdin.fileno()
-results = {"env": {k: os.environ.get(k) for k in ("TERM", "TERM_PROGRAM", "TERM_PROGRAM_VERSION", "REX_SESSION", "COLORTERM")}}
+results = {"env": {k: os.environ.get(k) for k in ("TERM", "TERM_PROGRAM", "TERM_PROGRAM_VERSION", "REX_SESSION", "REX_BLOCK", "COLORTERM")}}
 
 
 def w(s):

@@ -174,7 +174,7 @@ Layout is redone on resize, and your place stays put.
 
 ## Using it with Rex
 
-Detected from `REX_SESSION`:
+Detected from `REX_BLOCK` (or `REX_SESSION`, which Rex servers before 0.1.0-preview.23 set):
 
 - `rdxt file.md` renders in the current pane.
 - `rdxt open file.md` opens it in a new split beside you (useful for agents, and could replace md-viewer).
